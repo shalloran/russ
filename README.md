@@ -1,6 +1,8 @@
 # russ
 
-Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus. This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few quality-of-life improvements. The original project is excellent and I use it daily, merely trying to customize for my needs.
+Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus. 
+
+This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few personal improvements. The original project is excellent and I use it daily, merely trying to customize for my needs.
 
 [![crates.io](https://img.shields.io/crates/v/rss-tui.svg)](https://crates.io/crates/rss-tui)
 [![Rust](https://github.com/ckampfe/russ/actions/workflows/rust.yml/badge.svg)](https://github.com/ckampfe/russ/actions/workflows/rust.yml)
@@ -21,24 +23,24 @@ Note that on linux, you may need additional system dependencies as well, for exa
 ```console
 sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
 ```
-The binary will be installed as `russ` (even though the package is `rss-tui`).
+The binary will be installed as `rss-tui`. You can run it with:
 ```console
-russ read
+rss-tui read
 ```
 
 
 ### From this repository:
 
 ```console
-cargo install russ --git https://github.com/shalloran/russ
+cargo install rss-tui --git https://github.com/shalloran/russ
 ```
 
 **Note:** This is a fork with some additional features. If you want the original, use: `cargo install russ --git https://github.com/ckampfe/russ`.
 
 **Note:** If you want to force overwrite an existing installation, use:
-`cargo install --force rss-tui` (from crates.io) or `cargo install --force --git https://github.com/shalloran/russ russ` (from git)
+`cargo install --force rss-tui` (from crates.io) or `cargo install --force --git https://github.com/shalloran/russ rss-tui` (from git)
 
-**Note** that on its first run with no arguments, `russ read` creates a SQLite database file called `feeds.db` to store RSS/Atom feeds in a location of its choosing. If you wish to override this, you can pass a path with the `-d` option, like `russ -d /your/database/location/my_feeds.db`. If you use a custom database location, you will need to pass the `-d` option every time you invoke `russ`. See the help with `russ -h` for more information about where `russ` will store the `feeds.db` database by default on your platform.
+**Note** that on its first run with no arguments, `rss-tui read` creates a SQLite database file called `feeds.db` to store RSS/Atom feeds in a location of its choosing. If you wish to override this, you can pass a path with the `-d` option, like `rss-tui -d /your/database/location/my_feeds.db`. If you use a custom database location, you will need to pass the `-d` option every time you invoke `rss-tui`. See the help with `rss-tui -h` for more information about where `rss-tui` will store the `feeds.db` database by default on your platform.
 
 ## use
 
@@ -82,7 +84,7 @@ Some normal mode controls vary based on whether you are currently selecting a fe
 ## help/options/config
 
 ```console
-russ -h
+rss-tui -h
 A TUI RSS reader with vim-like controls and a local-first, offline-first focus
 
 Usage: russ <COMMAND>
@@ -101,7 +103,7 @@ Options:
 ## read mode
 
 ```console
-russ read -h
+rss-tui read -h
 Read your feeds
 
 Usage: russ read [OPTIONS]
@@ -122,7 +124,7 @@ Options:
 ## import OPML mode
 
 ```console
-russ import -h
+rss-tui import -h
 Import feeds from an OPML document
 
 Usage: russ import [OPTIONS] --opml-path <OPML_PATH>
@@ -141,7 +143,7 @@ Options:
 ## export OPML mode
 
 ```console
-russ export -h
+rss-tui export -h
 Export feeds to an OPML document
 
 Usage: russ export [OPTIONS] --opml-path <OPML_PATH>
@@ -194,7 +196,7 @@ This is not a strict feature list, and it is not a roadmap. Unchecked items are 
 ### fork-specific additions
 
 - [x] improved feed deletion with confirmation (press `d` to delete, confirm with `d` again)
-- [x] export feeds to OPML format (CLI: `russ export -o <path>`, UI: press `E`)
+- [x] export feeds to OPML format (CLI: `rss-tui export -o <path>`, UI: press `E`)
 - [x] email article functionality (press `e` when viewing an entry to open your email client with the article title as subject and URL as body)
 
 ## Minimum Supported Rust Version (MSRV) policy
