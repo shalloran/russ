@@ -206,14 +206,28 @@ fn draw_entry_info(f: &mut Frame, area: Rect, entry_meta: &EntryMetadata) {
 }
 
 fn draw_feeds(f: &mut Frame, area: Rect, app: &mut AppImpl) {
-    let feeds = app
+    // create feed list items with unread counts
+    let feeds: Vec<ListItem> = app
         .feeds
         .items
         .iter()
-        .flat_map(|feed| feed.title.as_ref())
-        .map(Span::raw)
-        .map(ListItem::new)
-        .collect::<Vec<ListItem>>();
+        .map(|feed| {
+            let feed_title = feed.title.as_deref().unwrap_or("No title");
+            
+            // get unread count for this feed
+            let unread_count = crate::rss::count_unread_entries(&app.conn, feed.id)
+                .unwrap_or(0);
+            
+            // format feed name with count if there are unread entries
+            let display_text = if unread_count > 0 {
+                format!("{} ({})", feed_title, unread_count)
+            } else {
+                feed_title.to_string()
+            };
+            
+            ListItem::new(Span::raw(display_text))
+        })
+        .collect();
 
     let default_title = String::from("Feeds");
     

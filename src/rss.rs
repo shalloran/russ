@@ -717,6 +717,16 @@ pub fn get_feed_ids(conn: &rusqlite::Connection) -> Result<Vec<FeedId>> {
     Ok(ids)
 }
 
+// count unread entries for a specific feed
+pub fn count_unread_entries(conn: &rusqlite::Connection, feed_id: FeedId) -> Result<usize> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entries WHERE feed_id = ?1 AND read_at IS NULL",
+        [feed_id],
+        |row| row.get(0),
+    )?;
+    Ok(count as usize)
+}
+
 pub fn get_entry_meta(conn: &rusqlite::Connection, entry_id: EntryId) -> Result<EntryMetadata> {
     let result = conn.query_row(
         "SELECT 
