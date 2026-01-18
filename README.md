@@ -2,6 +2,7 @@
 
 Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus. This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few quality-of-life improvements. The original project is excellent and I use it daily, merely trying to customize for my needs.
 
+[![crates.io](https://img.shields.io/crates/v/rss-tui.svg)](https://crates.io/crates/rss-tui)
 [![Rust](https://github.com/ckampfe/russ/actions/workflows/rust.yml/badge.svg)](https://github.com/ckampfe/russ/actions/workflows/rust.yml)
 
 ---
@@ -11,18 +12,28 @@ Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-
 
 ## install
 
+### From crates.io (recommended)
+
 ```console
-$ cargo install russ --git https://github.com/shalloran/russ
+$ cargo install rss-tui
 
   note that on linux, you will need these system dependencies as well, for example:
 $ sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
 $ russ read
 ```
 
+The binary will be installed as `russ` (even though the package is `rss-tui`).
+
+### From git repository
+
+```console
+$ cargo install russ --git https://github.com/shalloran/russ
+```
+
 **Note:** This is a fork with some additional features. If you want the original, use: `cargo install russ --git https://github.com/ckampfe/russ`.
 
-**Note:** If you want to force overwrite an existing /ckampfe/russ implementation, use:
-`cargo install --force --git https://github.com/shalloran/russ russ`
+**Note:** If you want to force overwrite an existing installation, use:
+`cargo install --force rss-tui` (from crates.io) or `cargo install --force --git https://github.com/shalloran/russ russ` (from git)
 
 **Note** that on its first run with no arguments, `russ read` creates a SQLite database file called `feeds.db` to store RSS/Atom feeds in a location of its choosing. If you wish to override this, you can pass a path with the `-d` option, like `russ -d /your/database/location/my_feeds.db`. If you use a custom database location, you will need to pass the `-d` option every time you invoke `russ`. See the help with `russ -h` for more information about where `russ` will store the `feeds.db` database by default on your platform.
 
