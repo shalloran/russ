@@ -19,11 +19,12 @@ $ sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
 $ russ read
 ```
 
-**Note:** This is a fork with some additional features. If you want the original, use `cargo install russ --git https://github.com/ckampfe/russ`.
+**Note:** This is a fork with some additional features. If you want the original, use: `cargo install russ --git https://github.com/ckampfe/russ`.
+
+**Note:** If you want to force overwrite an existing /ckampfe/russ implementation, use:
+`cargo install --force --git https://github.com/shalloran/russ russ`
 
 **Note** that on its first run with no arguments, `russ read` creates a SQLite database file called `feeds.db` to store RSS/Atom feeds in a location of its choosing. If you wish to override this, you can pass a path with the `-d` option, like `russ -d /your/database/location/my_feeds.db`. If you use a custom database location, you will need to pass the `-d` option every time you invoke `russ`. See the help with `russ -h` for more information about where `russ` will store the `feeds.db` database by default on your platform.
-
-I do not currently publish binary releases, but that may change if someone is interested in that.
 
 ## use
 
