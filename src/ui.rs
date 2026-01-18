@@ -300,7 +300,11 @@ fn draw_help(f: &mut Frame, area: Rect, app: &mut AppImpl) {
             }
         },
         Mode::Editing => {
-            text.push_str("enter - fetch feed; del - delete feed\n");
+            if app.pending_rename.is_some() {
+                text.push_str("R - rename feed; enter - confirm rename\n");
+            } else {
+                text.push_str("R - rename feed; enter - fetch feed; del - delete feed\n");
+            }
             text.push_str("esc - normal mode\n")
         }
     }
@@ -315,11 +319,24 @@ fn draw_help(f: &mut Frame, area: Rect, app: &mut AppImpl) {
 fn draw_new_feed_input(f: &mut Frame, area: Rect, app: &mut AppImpl) {
     let text = &app.feed_subscription_input;
     let text = Text::from(text.as_str());
+    
+    let title = if app.pending_rename.is_some() {
+        let feed_title = app.feeds.items
+            .iter()
+            .find(|f| Some(f.id) == app.pending_rename)
+            .and_then(|f| f.title.as_ref())
+            .map(|t| t.as_str())
+            .unwrap_or("Unknown feed");
+        format!("Rename feed: {}", feed_title)
+    } else {
+        "Add a feed".to_string()
+    };
+    
     let input = Paragraph::new(text)
         .style(Style::default().fg(Color::Yellow))
         .block(
             Block::default().borders(Borders::ALL).title(Span::styled(
-                "Add a feed",
+                title,
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),

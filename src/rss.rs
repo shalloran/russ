@@ -636,6 +636,20 @@ fn update_feed_etag(
     Ok(())
 }
 
+pub fn update_feed_title(
+    conn: &mut rusqlite::Connection,
+    feed_id: FeedId,
+    new_title: String,
+) -> Result<()> {
+    in_transaction(conn, |tx| {
+        tx.execute(
+            "UPDATE feeds SET title = ?2 WHERE id = ?1",
+            params![feed_id, new_title],
+        )?;
+        Ok(())
+    })
+}
+
 pub fn get_feed_url(conn: &rusqlite::Connection, feed_id: FeedId) -> Result<String> {
     let s: String = conn.query_row(
         "SELECT feed_link FROM feeds WHERE id=?1",

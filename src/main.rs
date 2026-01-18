@@ -307,6 +307,8 @@ enum Action {
     CancelPendingDeletion,
     ExportFeeds,
     EmailArticle,
+    RenameFeed,
+    ConfirmRenameFeed,
     EnterNormalMode,
     ClearErrorFlash,
     SelectAndShowCurrentEntry,
@@ -379,11 +381,19 @@ fn get_action(app: &App, event: Event<KeyEvent>) -> Option<Action> {
                 match key_event.code {
                     KeyCode::Enter => {
                         if !app.feed_subscription_input_is_empty() {
-                            Some(Action::SubscribeToFeed)
+                            if app.is_renaming() {
+                                Some(Action::ConfirmRenameFeed)
+                            } else {
+                                Some(Action::SubscribeToFeed)
+                            }
                         } else {
                             None
                         }
                     }
+                    KeyCode::Char('R') => match app.selected() {
+                        Selected::Feeds => Some(Action::RenameFeed),
+                        _ => None,
+                    },
                     KeyCode::Char(c) => Some(Action::PushInputChar(c)),
                     KeyCode::Backspace => Some(Action::DeleteInputChar),
                     KeyCode::Delete => Some(Action::DeleteFeed),
@@ -425,7 +435,12 @@ fn update(app: &mut App, action: Action) -> Result<()> {
         Action::CancelPendingDeletion => app.cancel_pending_deletion(),
         Action::ExportFeeds => app.export_feeds()?,
         Action::EmailArticle => app.email_article()?,
-        Action::EnterNormalMode => app.set_mode(Mode::Normal),
+        Action::RenameFeed => app.start_rename_feed()?,
+        Action::ConfirmRenameFeed => app.confirm_rename_feed()?,
+        Action::EnterNormalMode => {
+            app.cancel_rename_feed();
+            app.set_mode(Mode::Normal);
+        },
         Action::ClearErrorFlash => app.clear_error_flash(),
         Action::SelectAndShowCurrentEntry => app.select_and_show_current_entry()?,
     };

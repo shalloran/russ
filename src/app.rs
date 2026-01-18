@@ -46,7 +46,8 @@ impl App {
         (should_quit, bool),
         (refresh_feed, Result<()>),
         (subscribe_to_feed, Result<()>),
-        (feed_subscription_input_is_empty, bool)
+        (feed_subscription_input_is_empty, bool),
+        (is_renaming, bool)
     ];
 
     delegate_to_locked_mut_inner![
@@ -204,6 +205,21 @@ impl App {
         let mut inner = self.inner.lock().unwrap();
         inner.email_article()
     }
+
+    pub(crate) fn start_rename_feed(&self) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        inner.start_rename_feed()
+    }
+
+    pub(crate) fn confirm_rename_feed(&self) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        inner.confirm_rename_feed()
+    }
+
+    pub(crate) fn cancel_rename_feed(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.cancel_rename_feed();
+    }
 }
 
 #[derive(Debug)]
@@ -236,6 +252,7 @@ pub struct AppImpl {
     pub feed_subscription_input: String,
     pub flash: Option<String>,
     pub pending_deletion: Option<crate::rss::FeedId>,
+    pub pending_rename: Option<crate::rss::FeedId>,
     event_tx: std::sync::mpsc::Sender<crate::Event<crossterm::event::KeyEvent>>,
     io_tx: std::sync::mpsc::Sender<crate::io::Action>,
     pub is_wsl: bool,
@@ -288,6 +305,7 @@ impl AppImpl {
             entry_selection_position: 0,
             flash: None,
             pending_deletion: None,
+            pending_rename: None,
             event_tx,
             is_wsl,
             io_tx,
@@ -547,6 +565,65 @@ impl AppImpl {
         Ok(())
     }
 
+    pub fn start_rename_feed(&mut self) -> Result<()> {
+        if matches!(self.selected, Selected::Feeds) && matches!(self.mode(), Mode::Editing) {
+            let feed_id = self.selected_feed_id();
+            self.pending_rename = Some(feed_id);
+            
+            // pre-fill input with current title
+            let current_title = self.feeds.items
+                .iter()
+                .find(|f| f.id == feed_id)
+                .and_then(|f| f.title.as_ref())
+                .map(|t| t.clone())
+                .unwrap_or_else(|| String::new());
+            
+            self.feed_subscription_input = current_title;
+            self.flash = None; // clear any existing flash
+        }
+        Ok(())
+    }
+
+    pub fn confirm_rename_feed(&mut self) -> Result<()> {
+        if let Some(feed_id) = self.pending_rename {
+            let new_title = self.feed_subscription_input.clone();
+            
+            if new_title.trim().is_empty() {
+                self.error_flash.push(anyhow::anyhow!("Feed title cannot be empty"));
+                self.pending_rename = None;
+                self.reset_feed_subscription_input();
+                return Ok(());
+            }
+            
+            crate::rss::update_feed_title(&mut self.conn, feed_id, new_title.trim().to_string())?;
+            
+            // update the feed in app state
+            if let Some(feed) = self.feeds.items.iter_mut().find(|f| f.id == feed_id) {
+                feed.title = Some(new_title.trim().to_string());
+            }
+            
+            // update current feed if it's the one being renamed
+            if let Some(ref mut current_feed) = self.current_feed {
+                if current_feed.id == feed_id {
+                    current_feed.title = Some(new_title.trim().to_string());
+                }
+            }
+            
+            self.update_feeds()?;
+            self.update_current_feed_and_entries()?;
+            
+            self.flash = Some("Feed renamed".to_string());
+            self.pending_rename = None;
+            self.reset_feed_subscription_input();
+        }
+        Ok(())
+    }
+
+    pub fn cancel_rename_feed(&mut self) {
+        self.pending_rename = None;
+        self.reset_feed_subscription_input();
+    }
+
     pub fn toggle_help(&mut self) -> Result<()> {
         self.show_help = !self.show_help;
         Ok(())
@@ -566,6 +643,10 @@ impl AppImpl {
 
     pub fn feed_subscription_input_is_empty(&self) -> bool {
         self.feed_subscription_input.is_empty()
+    }
+
+    pub fn is_renaming(&self) -> bool {
+        self.pending_rename.is_some()
     }
 
     pub fn feed_subscription_input(&self) -> String {
@@ -629,6 +710,7 @@ impl AppImpl {
 
     pub fn toggle_read_mode(&mut self) -> Result<()> {
         self.cancel_pending_deletion();
+        self.cancel_rename_feed();
         match (&self.read_mode, &self.selected) {
             (ReadMode::ShowRead, Selected::Feeds) | (ReadMode::ShowRead, Selected::Entries) => {
                 self.entry_selection_position = 0;
@@ -820,6 +902,7 @@ impl AppImpl {
             Selected::Feeds => {
                 if !self.entries.items.is_empty() {
                     self.cancel_pending_deletion();
+                    self.cancel_rename_feed();
                     self.selected = Selected::Entries;
                     self.entries.reset();
                     self.update_current_entry_meta()?;
