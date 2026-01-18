@@ -192,7 +192,7 @@ This is not a strict feature list, and it is not a roadmap. Unchecked items are 
 
 - [ ] visual indicator for which feeds have new/unacknowledged entries
 - [ ] integration with ollama or LMStudio for local summarization
-- [ ] 
+- [ ] bug: wrap text on 
 
 ### fork-specific additions
 

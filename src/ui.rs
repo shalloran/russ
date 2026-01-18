@@ -3,7 +3,7 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Span, Text};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, LineGauge, List, ListItem, Paragraph, Wrap};
 use std::rc::Rc;
 
@@ -12,6 +12,59 @@ use crate::modes::{Mode, ReadMode, Selected};
 use crate::rss::EntryMetadata;
 
 const PINK: Color = Color::Rgb(255, 150, 167);
+
+// wrap text to fit within a given width, splitting on word boundaries when possible
+fn wrap_text(text: &str, width: usize) -> Vec<String> {
+    if width == 0 {
+        return vec![];
+    }
+    
+    let mut lines = Vec::new();
+    let words: Vec<&str> = text.split_whitespace().collect();
+    
+    if words.is_empty() {
+        return vec![text.to_string()];
+    }
+    
+    let mut current_line = String::new();
+    
+    for word in words {
+        let test_line = if current_line.is_empty() {
+            word.to_string()
+        } else {
+            format!("{} {}", current_line, word)
+        };
+        
+        if test_line.len() <= width {
+            current_line = test_line;
+        } else {
+            if !current_line.is_empty() {
+                lines.push(current_line);
+            }
+            // if a single word is longer than width, split it
+            if word.len() > width {
+                let mut remaining = word;
+                while remaining.len() > width {
+                    lines.push(remaining[..width].to_string());
+                    remaining = &remaining[width..];
+                }
+                current_line = remaining.to_string();
+            } else {
+                current_line = word.to_string();
+            }
+        }
+    }
+    
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+    
+    if lines.is_empty() {
+        vec![text.to_string()]
+    } else {
+        lines
+    }
+}
 
 pub fn predraw(f: &Frame) -> Rc<[Rect]> {
     Layout::default()
@@ -163,25 +216,60 @@ fn draw_feeds(f: &mut Frame, area: Rect, app: &mut AppImpl) {
         .collect::<Vec<ListItem>>();
 
     let default_title = String::from("Feeds");
-    let title = app.flash.as_ref().unwrap_or(&default_title);
+    
+    // if there's a flash message, split the area to show it separately
+    if app.flash.is_some() {
+        let chunks = Layout::default()
+            .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+            .direction(Direction::Vertical)
+            .split(area);
+        
+        // show flash message in a paragraph at the top
+        if let Some(flash_text) = &app.flash {
+            let flash_paragraph = Paragraph::new(Text::from(flash_text.as_str()))
+                .style(Style::default().fg(Color::Yellow))
+                .wrap(Wrap { trim: false });
+            f.render_widget(flash_paragraph, chunks[0]);
+        }
+        
+        // show feeds list with normal title
+        let feeds = List::new(feeds).block(
+            Block::default().borders(Borders::ALL).title(Span::styled(
+                &default_title,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        );
 
-    let feeds = List::new(feeds).block(
-        Block::default().borders(Borders::ALL).title(Span::styled(
-            title,
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        )),
-    );
+        let feeds = match app.selected {
+            Selected::Feeds => feeds
+                .highlight_style(Style::default().fg(PINK).add_modifier(Modifier::BOLD))
+                .highlight_symbol("> "),
+            _ => feeds,
+        };
 
-    let feeds = match app.selected {
-        Selected::Feeds => feeds
-            .highlight_style(Style::default().fg(PINK).add_modifier(Modifier::BOLD))
-            .highlight_symbol("> "),
-        _ => feeds,
-    };
+        f.render_stateful_widget(feeds, chunks[1], &mut app.feeds.state);
+    } else {
+        // no flash message, show feeds list normally
+        let feeds = List::new(feeds).block(
+            Block::default().borders(Borders::ALL).title(Span::styled(
+                &default_title,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        );
 
-    f.render_stateful_widget(feeds, area, &mut app.feeds.state);
+        let feeds = match app.selected {
+            Selected::Feeds => feeds
+                .highlight_style(Style::default().fg(PINK).add_modifier(Modifier::BOLD))
+                .highlight_symbol("> "),
+            _ => feeds,
+        };
+
+        f.render_stateful_widget(feeds, area, &mut app.feeds.state);
+    }
 }
 
 fn draw_feed_info(f: &mut Frame, area: Rect, app: &mut AppImpl) {
@@ -346,15 +434,37 @@ fn draw_new_feed_input(f: &mut Frame, area: Rect, app: &mut AppImpl) {
 }
 
 fn draw_entries(f: &mut Frame, area: Rect, app: &mut AppImpl) {
+    // calculate available width for wrapping (accounting for borders and highlight symbol)
+    let available_width = if area.width > 4 {
+        area.width as usize - 4
+    } else {
+        1
+    };
+    
     let entries = app
         .entries
         .items
         .iter()
         .map(|entry| {
-            ListItem::new(Span::raw(entry.title.as_ref().map_or_else(
-                || std::borrow::Cow::from("No title"),
-                std::borrow::Cow::from,
-            )))
+            let title_text = entry.title.as_ref().map_or_else(
+                || "No title".to_string(),
+                |t| t.to_string(),
+            );
+            
+            // wrap the title text to fit the available width
+            let wrapped_lines = wrap_text(&title_text, available_width);
+            
+            // create a list item with multiple lines if needed
+            if wrapped_lines.len() == 1 {
+                ListItem::new(Span::raw(wrapped_lines[0].clone()))
+            } else {
+                // create multiple lines for multi-line items
+                let lines: Vec<Line> = wrapped_lines
+                    .into_iter()
+                    .map(|line| Line::from(Span::raw(line)))
+                    .collect();
+                ListItem::new(Text::from(lines))
+            }
         })
         .collect::<Vec<ListItem>>();
 
