@@ -1,6 +1,6 @@
 [package]
 name = "rss-tui"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["github/shalloran", "Clark Kampfe <clark.kampfe@gmail.com>"]
 edition = "2024"
 license = "AGPL-3.0-or-later"
