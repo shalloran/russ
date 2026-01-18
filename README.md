@@ -12,22 +12,25 @@ Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-
 
 ## install
 
-### From crates.io (recommended)
+### From crates.io (recommended):
 
 ```console
-$ cargo install rss-tui
-
-  note that on linux, you will need these system dependencies as well, for example:
-$ sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
-$ russ read
+cargo install rss-tui
+```
+Note that on linux, you may need additional system dependencies as well, for example:
+```console
+sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
+```
+The binary will be installed as `russ` (even though the package is `rss-tui`).
+```console
+russ read
 ```
 
-The binary will be installed as `russ` (even though the package is `rss-tui`).
 
-### From git repository
+### From this repository:
 
 ```console
-$ cargo install russ --git https://github.com/shalloran/russ
+cargo install russ --git https://github.com/shalloran/russ
 ```
 
 **Note:** This is a fork with some additional features. If you want the original, use: `cargo install russ --git https://github.com/ckampfe/russ`.
@@ -79,7 +82,7 @@ Some normal mode controls vary based on whether you are currently selecting a fe
 ## help/options/config
 
 ```console
-$ russ -h
+russ -h
 A TUI RSS reader with vim-like controls and a local-first, offline-first focus
 
 Usage: russ <COMMAND>
@@ -98,7 +101,7 @@ Options:
 ## read mode
 
 ```console
-$ russ read -h
+russ read -h
 Read your feeds
 
 Usage: russ read [OPTIONS]
@@ -119,7 +122,7 @@ Options:
 ## import OPML mode
 
 ```console
-$ russ import -h
+russ import -h
 Import feeds from an OPML document
 
 Usage: russ import [OPTIONS] --opml-path <OPML_PATH>
@@ -138,7 +141,7 @@ Options:
 ## export OPML mode
 
 ```console
-$ russ export -h
+russ export -h
 Export feeds to an OPML document
 
 Usage: russ export [OPTIONS] --opml-path <OPML_PATH>
