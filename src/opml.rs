@@ -1,6 +1,6 @@
-//! Import OPML feed lists into Russ
+//! Import and export OPML feed lists into/from Russ
 
-use crate::ImportOptions;
+use crate::{ExportOptions, ImportOptions};
 use anyhow::{Context, Result};
 
 pub(crate) fn import(options: ImportOptions) -> Result<()> {
@@ -71,4 +71,55 @@ fn get_feed_urls(opml_document: &opml::OPML) -> Vec<String> {
     }
 
     feed_urls
+}
+
+pub(crate) fn export(options: ExportOptions) -> Result<()> {
+    let mut conn = rusqlite::Connection::open(&options.database_path)?;
+
+    crate::rss::initialize_db(&mut conn)?;
+
+    let feeds = crate::rss::get_feeds(&conn)?;
+
+    // create outlines for each feed
+    let outlines: Vec<opml::Outline> = feeds
+        .into_iter()
+        .filter_map(|feed| {
+            // only export feeds that have a feed_link (required for OPML)
+            feed.feed_link.map(|feed_link| {
+                opml::Outline {
+                    text: feed.title.clone().unwrap_or_else(|| feed_link.clone()),
+                    title: feed.title,
+                    r#type: Some("rss".to_string()),
+                    xml_url: Some(feed_link),
+                    html_url: feed.link,
+                    outlines: vec![],
+                    ..Default::default()
+                }
+            })
+        })
+        .collect();
+
+    // create OPML document
+    let opml_doc = opml::OPML {
+        version: "2.0".to_string(),
+        head: Some(opml::Head {
+            title: Some("Russ Feed Export".to_string()),
+            date_created: Some(chrono::Utc::now().to_rfc3339()),
+            ..Default::default()
+        }),
+        body: opml::Body { outlines },
+    };
+
+    // write to file
+    let opml_file = std::fs::File::create(&options.opml_path)
+        .with_context(|| format!("unable to create OPML file at {:?}", options.opml_path))?;
+
+    let mut opml_writer = std::io::BufWriter::new(opml_file);
+    opml_doc
+        .to_writer(&mut opml_writer)
+        .with_context(|| "unable to write OPML document")?;
+
+    eprintln!("Exported {} feeds to {:?}", opml_doc.body.outlines.len(), options.opml_path);
+
+    Ok(())
 }

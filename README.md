@@ -2,6 +2,8 @@
 
 Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus.
 
+This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few quality-of-life improvements. The original project is excellent and I use it daily—these changes just make it work a bit better for my workflow.
+
 [![Rust](https://github.com/ckampfe/russ/actions/workflows/rust.yml/badge.svg)](https://github.com/ckampfe/russ/actions/workflows/rust.yml)
 
 ---
@@ -12,12 +14,14 @@ Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-
 ## install
 
 ```console
-$ cargo install russ --git https://github.com/ckampfe/russ
+$ cargo install russ --git https://github.com/shalloran/russ
 
   note that on linux, you will need these system dependencies as well, for example:
 $ sudo apt update && sudo apt install libxcb-shape0-dev libxcb-xfixes0-dev
 $ russ read
 ```
+
+**Note:** This is a fork with some additional features. If you want the original, use `cargo install russ --git https://github.com/ckampfe/russ`.
 
 **Note** that on its first run with no arguments, `russ read` creates a SQLite database file called `feeds.db` to store RSS/Atom feeds in a location of its choosing. If you wish to override this, you can pass a path with the `-d` option, like `russ -d /your/database/location/my_feeds.db`. If you use a custom database location, you will need to pass the `-d` option every time you invoke `russ`. See the help with `russ -h` for more information about where `russ` will store the `feeds.db` database by default on your platform.
 
@@ -36,7 +40,7 @@ In insert mode, you enter the URL of a feed you wish to begin following, and Rus
 
 That's basically it!
 
-Russ can also import feeds from an OPML file. See below for more details.
+Russ can also import feeds from an OPML file, export your feeds to OPML, and email articles directly from the reader. See below for more details.
 
 ### controls - normal mode
 
@@ -45,20 +49,22 @@ Some normal mode controls vary based on whether you are currently selecting a fe
 - `q`/`Esc` - quit Russ
 - `hjkl`/arrows - move up/down/left/right between feeds and entries, scroll up/down on an entry
 - `Enter` - read selected entry
-- `r` - refresh the selected feed
-- `r` - mark the selected entry as read
+- `r` - refresh the selected feed (when feeds selected) or mark entry as read/unread (when entries selected)
 - `x` - refresh all feeds
-- `i` - change to insert mode
+- `i`/`e` - change to insert mode (when feeds selected)
+- `e` - email the current article (when viewing an entry; opens your default email client with the article title as subject and URL as body)
 - `a` - toggle between read/unread entries
 - `c` - copy the selected link to the clipboard (feed or entry)
 - `o` - open the selected link in your browser (feed or entry)
+- `d` - delete the selected feed (with confirmation; press `d` again to confirm, `n` to cancel)
+- `E` - export all feeds to an OPML file (saves to a timestamped file in your database directory)
 - `ctrl-u`/`ctrl-d` - scroll up/down a page at a time
 
 ### controls - insert mode
 
 - `Esc` - go back to normal mode
 - `Enter` - subscribe to the feed you just typed in the input box
-- `Del` - delete the selected feed.
+- `Del` - delete the selected feed (original behavior, still works)
 
 ## help/options/config
 
@@ -71,6 +77,7 @@ Usage: russ <COMMAND>
 Commands:
   read    Read your feeds
   import  Import feeds from an OPML document
+  export  Export feeds to an OPML document
   help    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -118,11 +125,30 @@ Options:
           Print help
 ```
 
+## export OPML mode
+
+```console
+$ russ export -h
+Export feeds to an OPML document
+
+Usage: russ export [OPTIONS] --opml-path <OPML_PATH>
+
+Options:
+  -d, --database-path <DATABASE_PATH>
+          Override where `russ` stores and reads feeds. By default, the feeds database on Linux this will be at `XDG_DATA_HOME/russ/feeds.db` or `$HOME/.local/share/russ/feeds.db`. On MacOS it will be at `$HOME/Library/Application Support/russ/feeds.db`. On Windows it will be at `{FOLDERID_LocalAppData}/russ/data/feeds.db`
+  -o, --opml-path <OPML_PATH>
+          Path where the OPML file will be written
+  -h, --help
+          Print help
+```
+
+You can also export from within the TUI by pressing `E` (capital E) in normal mode. This will create a timestamped OPML file in the same directory as your database.
+
 ## design
 
 Russ stores all application data in a SQLite database. Additionally, Russ is non-eager. It will not automatically refresh your feeds on a timer, it will not automatically mark entries as read. Russ will only do these things when you tell it to. This is intentional, as Russ has been designed to be 100% usable offline, with no internet connection. You should be able to load it up with new feeds and entries and fly to Australia, and not have Russ complain when the plane's Wifi fails. As long as you have a copy of Russ and a SQLite database of your RSS/Atom feeds, you will be able to read your RSS/Atom feeds.
 
-Russ is a [tui](https://crates.io/crates/tui) app that uses [crossterm](https://crates.io/crates/crossterm). I develop and use Russ primarily on a Mac, but I have run it successfully on Linux and WSL. It should be possible to use Russ on Windows, but I have not personally used Russ on Windows, so I cannot verify this. If you use Russ on Windows or have tried to use Russ on Windows, please open an issue and let me know!
+Russ is a [tui](https://crates.io/crates/tui) app that uses [crossterm](https://crates.io/crates/crossterm). The original author developed and used Russ primarily on a Mac, but it has been run successfully on Linux and WSL. It should be possible to use Russ on Windows, but I haven't personally tested it. If you use Russ on Windows or have tried to use Russ on Windows, feel free to open an issue and let me know!
 
 ## stability
 
@@ -146,6 +172,12 @@ consider opening a Github issue and asking if anyone knows how to make it happen
 ## features/todo
 
 This is not a strict feature list, and it is not a roadmap. Unchecked items are ideas to explore rather than features that are going to be built. If you have an idea for a feature that you would enjoy, open an issue and we can talk about it.
+
+### fork-specific additions
+
+- [x] improved feed deletion with confirmation (press `d` to delete, confirm with `d` again)
+- [x] export feeds to OPML format (CLI: `russ export -o <path>`, UI: press `E`)
+- [x] email article functionality (press `e` when viewing an entry to open your email client with the article title as subject and URL as body)
 
 - [ ] visual indicator for which feeds have new/unacknowledged entries
 - [ ] profiling mode that shows speed of UI interaction
@@ -203,7 +235,9 @@ remove the `"bundled"` feature from the `rusqlite` dependency and recompile `rus
 
 ## contributing
 
-I welcome contributions to Russ. If you have an idea for something you would like to contribute, open an issue and we can talk about it!
+The original project welcomes contributions. If you have an idea for something you would like to contribute to the original, open an issue on [ckampfe/russ](https://github.com/ckampfe/russ) and we can talk about it!
+
+For this fork, I'm happy to consider pull requests, but keep in mind this is primarily for my own use. If you want a feature that's more broadly useful, consider contributing to the upstream project instead.
 
 ## license
 

@@ -269,15 +269,36 @@ fn draw_help(f: &mut Frame, area: Rect, app: &mut AppImpl) {
     match app.selected {
         Selected::Feeds => {
             text.push_str("r - refresh selected feed; x - refresh all feeds\n");
-            text.push_str("c - copy link; o - open link in browser\n")
+            text.push_str("c - copy link; o - open link in browser\n");
+            if app.mode == Mode::Normal {
+                text.push_str("d - delete feed (with confirmation)\n");
+                text.push_str("E - export feeds to OPML\n");
+                text.push_str("e/i - edit mode\n");
+            }
+        }
+        Selected::Entry(_) => {
+            text.push_str("r - mark entry read/un; a - toggle view read/un\n");
+            text.push_str("c - copy link; o - open link in browser\n");
+            if app.mode == Mode::Normal {
+                text.push_str("e - email article (title as subject, URL as body)\n");
+                text.push_str("E - export feeds to OPML\n");
+            }
         }
         _ => {
             text.push_str("r - mark entry read/un; a - toggle view read/un\n");
-            text.push_str("c - copy link; o - open link in browser\n")
+            text.push_str("c - copy link; o - open link in browser\n");
+            if app.mode == Mode::Normal {
+                text.push_str("E - export feeds to OPML\n");
+            }
         }
     }
     match app.mode {
-        Mode::Normal => text.push_str("i - edit mode; q - exit\n"),
+        Mode::Normal => {
+            text.push_str("i - edit mode; q - exit\n");
+            if app.pending_deletion.is_some() {
+                text.push_str("d - confirm deletion; n - cancel\n");
+            }
+        },
         Mode::Editing => {
             text.push_str("enter - fetch feed; del - delete feed\n");
             text.push_str("esc - normal mode\n")

@@ -32,6 +32,7 @@ fn main() -> Result<()> {
 
     match validated_options {
         ValidatedOptions::Import(options) => crate::opml::import(options),
+        ValidatedOptions::Export(options) => crate::opml::export(options),
         ValidatedOptions::Read(options) => run_reader(options),
     }
 }
@@ -80,6 +81,17 @@ enum Command {
         #[arg(short, long, default_value = "5", value_parser = parse_seconds)]
         network_timeout: time::Duration,
     },
+    /// Export feeds to an OPML document
+    Export {
+        /// Override where `russ` stores and reads feeds.
+        /// By default, the feeds database on Linux this will be at `XDG_DATA_HOME/russ/feeds.db` or `$HOME/.local/share/russ/feeds.db`.
+        /// On MacOS it will be at `$HOME/Library/Application Support/russ/feeds.db`.
+        /// On Windows it will be at `{FOLDERID_LocalAppData}/russ/data/feeds.db`.
+        #[arg(short, long)]
+        database_path: Option<PathBuf>,
+        #[arg(short, long)]
+        opml_path: PathBuf,
+    },
 }
 
 impl Command {
@@ -112,6 +124,16 @@ impl Command {
                     network_timeout: *network_timeout,
                 }))
             }
+            Command::Export {
+                database_path,
+                opml_path,
+            } => {
+                let database_path = get_database_path(database_path)?;
+                Ok(ValidatedOptions::Export(ExportOptions {
+                    database_path,
+                    opml_path: opml_path.to_owned(),
+                }))
+            }
         }
     }
 }
@@ -126,6 +148,7 @@ fn parse_seconds(s: &str) -> Result<time::Duration, std::num::ParseIntError> {
 enum ValidatedOptions {
     Read(ReadOptions),
     Import(ImportOptions),
+    Export(ExportOptions),
 }
 
 #[derive(Clone, Debug)]
@@ -141,6 +164,12 @@ struct ImportOptions {
     database_path: PathBuf,
     opml_path: PathBuf,
     network_timeout: time::Duration,
+}
+
+#[derive(Debug)]
+pub struct ExportOptions {
+    pub database_path: PathBuf,
+    pub opml_path: PathBuf,
 }
 
 fn get_database_path(database_path: &Option<PathBuf>) -> std::io::Result<PathBuf> {
@@ -275,6 +304,9 @@ enum Action {
     PushInputChar(char),
     DeleteInputChar,
     DeleteFeed,
+    CancelPendingDeletion,
+    ExportFeeds,
+    EmailArticle,
     EnterNormalMode,
     ClearErrorFlash,
     SelectAndShowCurrentEntry,
@@ -322,11 +354,20 @@ fn get_action(app: &App, event: Event<KeyEvent>) -> Option<Action> {
                     },
                     (KeyCode::Char('?'), _) => Some(Action::ToggleHelp),
                     (KeyCode::Char('a'), _) => Some(Action::ToggleReadMode),
-                    (KeyCode::Char('e'), _) | (KeyCode::Char('i'), _) => {
-                        Some(Action::EnterEditingMode)
-                    }
+                    (KeyCode::Char('e'), _) => match app.selected() {
+                        Selected::Entry(_) => Some(Action::EmailArticle),
+                        Selected::Feeds => Some(Action::EnterEditingMode),
+                        _ => None,
+                    },
+                    (KeyCode::Char('i'), _) => Some(Action::EnterEditingMode),
                     (KeyCode::Char('c'), _) => Some(Action::CopyLinkToClipboard),
                     (KeyCode::Char('o'), _) => Some(Action::OpenLinkInBrowser),
+                    (KeyCode::Char('d'), _) => match app.selected() {
+                        Selected::Feeds => Some(Action::DeleteFeed),
+                        _ => None,
+                    },
+                    (KeyCode::Char('n'), _) => Some(Action::CancelPendingDeletion),
+                    (KeyCode::Char('E'), _) => Some(Action::ExportFeeds),
                     _ => None,
                 }
             }
@@ -371,13 +412,19 @@ fn update(app: &mut App, action: Action) -> Result<()> {
         Action::ToggleHelp => app.toggle_help()?,
         Action::ToggleReadMode => app.toggle_read_mode()?,
         Action::ToggleReadStatus => app.toggle_read()?,
-        Action::EnterEditingMode => app.set_mode(Mode::Editing),
+        Action::EnterEditingMode => {
+            app.cancel_pending_deletion();
+            app.set_mode(Mode::Editing);
+        },
         Action::CopyLinkToClipboard => app.put_current_link_in_clipboard()?,
         Action::OpenLinkInBrowser => app.open_link_in_browser()?,
         Action::SubscribeToFeed => app.subscribe_to_feed()?,
         Action::PushInputChar(c) => app.push_feed_subscription_input(c),
         Action::DeleteInputChar => app.pop_feed_subscription_input(),
         Action::DeleteFeed => app.delete_feed()?,
+        Action::CancelPendingDeletion => app.cancel_pending_deletion(),
+        Action::ExportFeeds => app.export_feeds()?,
+        Action::EmailArticle => app.email_article()?,
         Action::EnterNormalMode => app.set_mode(Mode::Normal),
         Action::ClearErrorFlash => app.clear_error_flash(),
         Action::SelectAndShowCurrentEntry => app.select_and_show_current_entry()?,

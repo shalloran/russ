@@ -163,12 +163,54 @@ impl App {
         let inner = self.inner.lock().unwrap();
         inner.current_entry_meta.is_some()
     }
+
+    pub(crate) fn cancel_pending_deletion(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.cancel_pending_deletion();
+    }
+
+    pub(crate) fn export_feeds(&self) -> Result<()> {
+        let inner = self.inner.lock().unwrap();
+        let database_path = inner.database_path.clone();
+        drop(inner);
+
+        // generate export path in same directory as database
+        let export_dir = database_path.parent()
+            .ok_or_else(|| anyhow::anyhow!("database path has no parent directory"))?;
+        
+        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+        let export_path = export_dir.join(format!("russ_export_{}.opml", timestamp));
+
+        let export_options = crate::ExportOptions {
+            database_path,
+            opml_path: export_path.clone(),
+        };
+
+        match crate::opml::export(export_options) {
+            Ok(()) => {
+                let mut inner = self.inner.lock().unwrap();
+                inner.flash = Some(format!("Exported feeds to {:?}", export_path));
+                Ok(())
+            }
+            Err(e) => {
+                let mut inner = self.inner.lock().unwrap();
+                inner.error_flash.push(e);
+                Ok(())
+            }
+        }
+    }
+
+    pub(crate) fn email_article(&self) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        inner.email_article()
+    }
 }
 
 #[derive(Debug)]
 pub struct AppImpl {
     // database stuff
     pub conn: rusqlite::Connection,
+    pub database_path: std::path::PathBuf,
     // network stuff
     pub http_client: ureq::Agent,
     // feed stuff
@@ -193,6 +235,7 @@ pub struct AppImpl {
     pub error_flash: Vec<anyhow::Error>,
     pub feed_subscription_input: String,
     pub flash: Option<String>,
+    pub pending_deletion: Option<crate::rss::FeedId>,
     event_tx: std::sync::mpsc::Sender<crate::Event<crossterm::event::KeyEvent>>,
     io_tx: std::sync::mpsc::Sender<crate::io::Action>,
     pub is_wsl: bool,
@@ -224,6 +267,7 @@ impl AppImpl {
 
         let mut app = AppImpl {
             conn,
+            database_path: options.database_path.clone(),
             http_client,
             should_quit: false,
             error_flash: vec![],
@@ -243,6 +287,7 @@ impl AppImpl {
             show_help: true,
             entry_selection_position: 0,
             flash: None,
+            pending_deletion: None,
             event_tx,
             is_wsl,
             io_tx,
@@ -261,33 +306,76 @@ impl AppImpl {
     }
 
     pub fn delete_feed(&mut self) -> Result<()> {
+        // handle deletion in editing mode (backward compatibility)
         if matches!(self.selected, Selected::Feeds) && matches!(self.mode(), Mode::Editing) {
             let feed_id = self.selected_feed_id();
-            crate::rss::delete_feed(&mut self.conn, feed_id)?;
+            self.perform_feed_deletion(feed_id)?;
+            return Ok(());
+        }
 
-            // Remove the feed in app state
-            let feeds_len = self.feeds.items.len();
-
-            for i in 0..feeds_len {
-                if self.feeds.items[i].id == feed_id {
-                    self.feeds.items.remove(i);
-
-                    if i == feeds_len - 1 {
-                        self.feeds.previous();
-                    }
-
-                    break;
-                }
+        // handle deletion in normal mode with confirmation
+        if matches!(self.selected, Selected::Feeds) && matches!(self.mode(), Mode::Normal) {
+            let feed_id = self.selected_feed_id();
+            
+            // if already pending deletion for this feed, confirm and delete
+            if self.pending_deletion == Some(feed_id) {
+                self.perform_feed_deletion(feed_id)?;
+                self.pending_deletion = None;
+                return Ok(());
             }
-
-            // Remove the entries from the feed in app state
-            self.entries.items.retain(|entry| entry.feed_id != feed_id);
-
-            // Update
-            self.update_current_feed_and_entries()?;
+            
+            // otherwise, set pending deletion and show confirmation message
+            self.pending_deletion = Some(feed_id);
+            let feed_title = self.feeds.items
+                .iter()
+                .find(|f| f.id == feed_id)
+                .and_then(|f| f.title.as_ref())
+                .map(|t| t.as_str())
+                .unwrap_or("this feed");
+            self.flash = Some(format!("Delete '{}'? Hit 'd' confirm, 'n' to cancel", feed_title));
+            return Ok(());
         }
 
         Ok(())
+    }
+
+    fn perform_feed_deletion(&mut self, feed_id: crate::rss::FeedId) -> Result<()> {
+        crate::rss::delete_feed(&mut self.conn, feed_id)?;
+
+        // remove the feed in app state
+        let feeds_len = self.feeds.items.len();
+        let mut feed_title = "Feed".to_string();
+
+        for i in 0..feeds_len {
+            if self.feeds.items[i].id == feed_id {
+                feed_title = self.feeds.items[i].title.as_ref()
+                    .map(|t| t.clone())
+                    .unwrap_or_else(|| "Feed".to_string());
+                self.feeds.items.remove(i);
+
+                if i == feeds_len - 1 {
+                    self.feeds.previous();
+                }
+
+                break;
+            }
+        }
+
+        self.flash = Some(format!("Deleted '{}'", feed_title));
+
+        // remove the entries from the feed in app state
+        self.entries.items.retain(|entry| entry.feed_id != feed_id);
+
+        // update
+        self.update_current_feed_and_entries()?;
+        self.pending_deletion = None;
+
+        Ok(())
+    }
+
+    pub fn cancel_pending_deletion(&mut self) {
+        self.pending_deletion = None;
+        self.flash = None;
     }
 
     pub fn update_feeds(&mut self) -> Result<()> {
@@ -540,6 +628,7 @@ impl AppImpl {
     }
 
     pub fn toggle_read_mode(&mut self) -> Result<()> {
+        self.cancel_pending_deletion();
         match (&self.read_mode, &self.selected) {
             (ReadMode::ShowRead, Selected::Feeds) | (ReadMode::ShowRead, Selected::Entries) => {
                 self.entry_selection_position = 0;
@@ -614,6 +703,58 @@ impl AppImpl {
         }
     }
 
+    fn email_article(&mut self) -> Result<()> {
+        let (title, url) = match &self.selected {
+            Selected::Entry(entry_meta) => {
+                (
+                    entry_meta.title.as_deref().unwrap_or("No title"),
+                    entry_meta.link.as_deref(),
+                )
+            }
+            Selected::Entries => {
+                if let Some(entry_meta) = &self.current_entry_meta {
+                    (
+                        entry_meta.title.as_deref().unwrap_or("No title"),
+                        entry_meta.link.as_deref(),
+                    )
+                } else {
+                    self.error_flash.push(anyhow::anyhow!("No entry selected"));
+                    return Ok(());
+                }
+            }
+            _ => {
+                self.error_flash.push(anyhow::anyhow!("No entry selected"));
+                return Ok(());
+            }
+        };
+
+        let url = match url {
+            Some(u) => u,
+            None => {
+                self.error_flash.push(anyhow::anyhow!("Entry has no URL"));
+                return Ok(());
+            }
+        };
+
+        // url-encode title and url for mailto: link
+        let encoded_title = urlencoding::encode(title);
+        let encoded_url = urlencoding::encode(url);
+
+        // create mailto: URL with subject and body
+        let mailto_url = format!("mailto:?subject={}&body={}", encoded_title, encoded_url);
+
+        match webbrowser::open(&mailto_url) {
+            Ok(_) => {
+                self.flash = Some("Opening email client...".to_string());
+            }
+            Err(e) => {
+                self.error_flash.push(anyhow::anyhow!("Failed to open email client: {}", e));
+            }
+        }
+
+        Ok(())
+    }
+
     fn should_quit(&self) -> bool {
         self.should_quit
     }
@@ -641,7 +782,19 @@ impl AppImpl {
     pub fn on_up(&mut self) -> Result<()> {
         match self.selected {
             Selected::Feeds => {
+                let old_feed_id = if self.pending_deletion.is_some() {
+                    Some(self.selected_feed_id())
+                } else {
+                    None
+                };
                 self.feeds.previous();
+                // cancel pending deletion if we moved to a different feed
+                if let (Some(pending_id), Some(old_id)) = (self.pending_deletion, old_feed_id) {
+                    let new_feed_id = self.selected_feed_id();
+                    if pending_id == old_id && pending_id != new_feed_id {
+                        self.cancel_pending_deletion();
+                    }
+                }
                 self.update_current_feed_and_entries()?;
             }
             Selected::Entries => {
@@ -666,6 +819,7 @@ impl AppImpl {
         match self.selected {
             Selected::Feeds => {
                 if !self.entries.items.is_empty() {
+                    self.cancel_pending_deletion();
                     self.selected = Selected::Entries;
                     self.entries.reset();
                     self.update_current_entry_meta()?;
@@ -681,7 +835,19 @@ impl AppImpl {
     pub fn on_down(&mut self) -> Result<()> {
         match self.selected {
             Selected::Feeds => {
+                let old_feed_id = if self.pending_deletion.is_some() {
+                    Some(self.selected_feed_id())
+                } else {
+                    None
+                };
                 self.feeds.next();
+                // cancel pending deletion if we moved to a different feed
+                if let (Some(pending_id), Some(old_id)) = (self.pending_deletion, old_feed_id) {
+                    let new_feed_id = self.selected_feed_id();
+                    if pending_id == old_id && pending_id != new_feed_id {
+                        self.cancel_pending_deletion();
+                    }
+                }
                 self.update_current_feed_and_entries()?;
             }
             Selected::Entries => {
