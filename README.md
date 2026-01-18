@@ -191,6 +191,7 @@ This is not a strict feature list, and it is not a roadmap. Unchecked items are 
 ### shalloran's roadmap
 
 - [ ] visual indicator for which feeds have new/unacknowledged entries
+- [ ] integration with ollama or LMStudio for local summarization
 - [ ] 
 
 ### fork-specific additions
@@ -201,8 +202,7 @@ This is not a strict feature list, and it is not a roadmap. Unchecked items are 
 
 ## Minimum Supported Rust Version (MSRV) policy
 
-Russ targets the latest stable version of the Rust compiler. Older Rust versions may work, but building Russ against non-latest stable versions is not a project goal and is not supported.
-Likewise, Russ may build with a nightly Rust compiler, but this is not a project goal.
+Russ targets the latest stable version of the Rust compiler. Older Rust versions may work, but building Russ against non-latest stable versions is not a downstream project goal and is not supported. See upstream for more info.
 
 ## SQLite version
 
