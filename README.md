@@ -1,8 +1,6 @@
 # russ
 
-Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus.
-
-This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few quality-of-life improvements. The original project is excellent and I use it daily—these changes just make it work a bit better for my workflow.
+Russ is a TUI RSS/Atom reader with vim-like controls and a local-first, offline-first focus. This is a fork of [ckampfe/russ](https://github.com/ckampfe/russ) with a few quality-of-life improvements. The original project is excellent and I use it daily, merely trying to customize for my needs.
 
 [![Rust](https://github.com/ckampfe/russ/actions/workflows/rust.yml/badge.svg)](https://github.com/ckampfe/russ/actions/workflows/rust.yml)
 
@@ -173,51 +171,16 @@ consider opening a Github issue and asking if anyone knows how to make it happen
 
 This is not a strict feature list, and it is not a roadmap. Unchecked items are ideas to explore rather than features that are going to be built. If you have an idea for a feature that you would enjoy, open an issue and we can talk about it.
 
+### shalloran's roadmap
+
+- [ ] visual indicator for which feeds have new/unacknowledged entries
+- [ ] 
+
 ### fork-specific additions
 
 - [x] improved feed deletion with confirmation (press `d` to delete, confirm with `d` again)
 - [x] export feeds to OPML format (CLI: `russ export -o <path>`, UI: press `E`)
 - [x] email article functionality (press `e` when viewing an entry to open your email client with the article title as subject and URL as body)
-
-- [ ] visual indicator for which feeds have new/unacknowledged entries
-- [ ] profiling mode that shows speed of UI interaction
-- [ ] stabilize the database schema
-- [ ] automatically fetch entries that only provide a link field
-- [ ] debug view (show app state)
-- [x] import OPML feeds
-- [x] migration process for database changes
-- [x] rss support
-- [x] atom support
-- [x] vim-style hjkl navigation
-- [x] subscribe to a feed
-- [x] refresh a feed
-- [x] delete a feed
-- [x] mark entries as read
-- [x] mark entries as unread
-- [x] view only unread entries
-- [x] view only read entries
-- [x] entry reading/scrolling
-- [x] error handling/display
-- [x] display entry info
-- [x] display feed info
-- [x] configurable word wrapping line length
-- [x] parse and store proper `chrono::DateTime<Utc>` for `pub_date`
-- [x] sort entries by `pub_date` descending, fall back to `inserted_at` if no `pub_date`
-- [x] nonblocking IO (inspiration: https://keliris.dev/improving-spotify-tui/)
-- [x] refresh all feeds
-- [x] refresh all feeds in parallel (multithreaded IO)
-- [x] use a database connection pool when refreshing feeds
-- [x] show refresh time for single feed and all feeds
-- [x] fix N+1 queries on feed/entry creation
-- [x] set up CI
-- [x] copy feed and entry links to clipboard
-- [x] add a network timeout for fetching new rss/atom entries (default: 5 seconds)
-- [x] show scroll progress for an entry
-- [x] show/hide help with `?`
-- [x] page-down/page-up entry scrolling
-- [x] automatic line length for wrapping
-- [x] ability to open the current link in your default browser
-- [x] create a feeds database by default (overridable with `-d` CLI option)
 
 ## Minimum Supported Rust Version (MSRV) policy
 
@@ -235,7 +198,7 @@ remove the `"bundled"` feature from the `rusqlite` dependency and recompile `rus
 
 ## contributing
 
-The original project welcomes contributions. If you have an idea for something you would like to contribute to the original, open an issue on [ckampfe/russ](https://github.com/ckampfe/russ) and we can talk about it!
+The original project welcomes contributions. If you have an idea for something you would like to contribute to the original, open an issue on [ckampfe/russ](https://github.com/ckampfe/russ) and they can address it!
 
 For this fork, I'm happy to consider pull requests, but keep in mind this is primarily for my own use. If you want a feature that's more broadly useful, consider contributing to the upstream project instead.
 
