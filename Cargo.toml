@@ -8,7 +8,7 @@ description = "A TUI RSS/Atom reader with vim-like controls and a local-first, o
 repository = "https://github.com/shalloran/russ"
 homepage = "https://github.com/shalloran/russ"
 documentation = "https://github.com/shalloran/russ"
-keywords = ["rss", "atom", "feed", "reader", "tui", "terminal"]
+keywords = ["rss", "tui", "reader", "feed", "terminal"]
 categories = ["command-line-utilities", "multimedia"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
